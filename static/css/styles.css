@@ -1,0 +1,163 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+    height: 100vh;
+}
+
+.sidebar {
+    width: 20%;
+    /* 1/6 of the width */
+    background-color: #343434;
+    color: #f4f4f4;
+    padding: 10px;
+    box-sizing: border-box;
+    overflow: auto;
+    white-space: nowrap;
+}
+
+.divider {
+    width: 5px;
+    cursor: ew-resize;
+    background-color: #ccc;
+}
+
+.main {
+    width: 80%;
+    /* Remaining width */
+    padding: 0 20px 20px 20px;
+    box-sizing: border-box;
+    overflow: auto;
+    position: relative;
+    background-color: #f4f4f4;
+}
+
+.search-box-container {
+    position: sticky;
+    top: 0;
+    background-color: #f4f4f4;
+    z-index: 100;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+#search {
+    width: 100%;
+    padding: 10px 40px 10px 10px;
+    border-radius: 20px;
+    border: 2px solid #ccc;
+    box-sizing: border-box;
+    -webkit-transition: 0.5s;
+    transition: 0.5s;
+    outline: none;
+}
+
+#search:focus {
+    border: 2px solid #343434;
+}
+
+.clear-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 2px solid #ccc;
+    border-radius: 50%;
+    font-size: 20px;
+    cursor: pointer;
+    color: #f4f4f4;
+    background-color: #848484;
+    -webkit-transition: 0.5s;
+    transition: 0.5s;
+    outline: none;
+}
+
+.clear-icon:focus {
+    border: 2px solid #343434;
+}
+
+
+.results-list {
+    margin-top: 10px;
+}
+
+.result-item {
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+    background-color: #e9e9e9;
+}
+
+.result-item:nth-child(even) {
+    background-color: #d9d9d9;
+}
+
+/* Collapsible Tree */
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+.result-item a {
+    color: black;
+    /* Set to desired color */
+    text-decoration: none;
+    /* Remove underline */
+}
+
+a:focus {
+    -webkit-transition: 0.2s;
+    transition: 0.2s;
+    outline-color: #343434;
+    outline-offset: 4px;
+}
+
+.notebook {
+    padding: 3px 0px;
+}
+
+.no-caret,
+.caret {
+    cursor: pointer;
+    user-select: none;
+    color: #f4f4f4;
+    /* Prevent text selection */
+}
+
+.no-caret::before {
+    content: "\25B6";
+    /* Right arrow */
+    color: #343434;
+    display: inline-block;
+    margin-right: 6px;
+}
+
+.caret::before {
+    content: "\25B6";
+    /* Right arrow */
+    color: #f4f4f4;
+    display: inline-block;
+    margin-right: 6px;
+}
+
+
+.caret-down::before {
+    transform: rotate(90deg);
+    /* Down arrow */
+}
+
+.nested {
+    display: none;
+    margin-left: 20px;
+    /* Indent child notebooks */
+}
+
+.active {
+    display: block;
+}

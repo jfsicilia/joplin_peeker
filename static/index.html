@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Joplin Peeker</title>
+    <link rel="stylesheet" href="static/css/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <ul class="notebook-tree" id="notebook-tree">
+                <li class="notebook">
+                    <span class="caret">Notebook 1</span>
+                    <ul class="nested">
+                        <li class="notebook">
+                            <span class="caret">Sub-notebook 1.1</span>
+                            <ul class="nested">
+                                <li class="notebook">
+                                    <span class="caret">Sub-notebook 1.1.1</span>
+                                    <ul class="nested">
+                                        <li class="notebook"><span class="no-caret">Sub-notebook 1.1.1.1</span></li>
+                                        <li class="notebook"><span class="no-caret">Sub-notebook 1.1.1.2</span></li>
+                                    </ul>
+                                </li>
+                                <li class="notebook"><span class="no-caret">Sub-notebook 1.1.2</span></li>
+                            </ul>
+                        </li>
+                        <li class="notebook"><span class="no-caret">Sub-notebook 1.2</span></li>
+                    </ul>
+                </li>
+                <li class="notebook">
+                    <span class="caret">Notebook 2</span>
+                    <ul class="nested">
+                        <li class="notebook"><span class="no-caret">Sub-notebook 2.1</span></li>
+                        <li class="notebook">
+                            <span class="caret">Sub-notebook 2.2</span>
+                            <ul class="nested">
+                                <li class="notebook"><span class="no-caret">Sub-notebook 2.2.1</span></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+        <div class="divider" id="divider"></div>
+        <div class="main" id="main">
+            <div class="search-box-container">
+                <input type="text" id="search"
+                    placeholder="Search notes... '/' To focus search box, 'x' To clear search box">
+                <button id="clearSearchBox" class="clear-icon">&times;</button>
+            </div>
+            <div class="results-list" id="results">
+                <!-- Results will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="static/js/script.js"></script>
+</body>
+
+</html>
