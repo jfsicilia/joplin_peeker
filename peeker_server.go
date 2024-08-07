@@ -177,39 +177,6 @@ func createSearchQuery(search string) string {
 	return query
 }
 
-// Retrieves all notebooks from the Joplin server.
-//
-// Returns:
-//
-//	A slice of Notebook structs representing the list of notebooks.
-func getNotebooks() []Notebook {
-	page := 1
-	// Resulting slice of notebooks.
-	notebooks := []Notebook{}
-	for {
-		resp, err := http.Get(createNotebooksQuery(page, "id,title,parent_id"))
-		if err != nil {
-			log.Fatalf("http.Get -> %v", err)
-		}
-		defer resp.Body.Close()
-
-		// Parse the JSON response
-		var notebooksResponse NotebooksResponse
-		err = json.NewDecoder(resp.Body).Decode(&notebooksResponse)
-		if err != nil {
-			log.Fatalf("json.Decode -> %v", err)
-		}
-		notebooks = append(notebooks, notebooksResponse.Items...)
-		// If there are no more notebooks left, break the loop.
-		if !notebooksResponse.HasMore {
-			break
-		}
-		page++
-	}
-
-	return notebooks
-}
-
 // Retrieves the markdown content of a note from the Joplin server.
 //
 // Parameters:
@@ -283,6 +250,39 @@ func getImageFromJoplin(imageID string) ([]byte, string, string) {
 	return image,
 		resp.Header.Get("Content-Type"),
 		resp.Header.Get("Content-Length")
+}
+
+// Retrieves all notebooks from the Joplin server.
+//
+// Returns:
+//
+//	A slice of Notebook structs representing the list of notebooks.
+func getNotebooks() []Notebook {
+	page := 1
+	// Resulting slice of notebooks.
+	notebooks := []Notebook{}
+	for {
+		resp, err := http.Get(createNotebooksQuery(page, "id,title,parent_id"))
+		if err != nil {
+			log.Fatalf("http.Get -> %v", err)
+		}
+		defer resp.Body.Close()
+
+		// Parse the JSON response
+		var notebooksResponse NotebooksResponse
+		err = json.NewDecoder(resp.Body).Decode(&notebooksResponse)
+		if err != nil {
+			log.Fatalf("json.Decode -> %v", err)
+		}
+		notebooks = append(notebooks, notebooksResponse.Items...)
+		// If there are no more notebooks left, break the loop.
+		if !notebooksResponse.HasMore {
+			break
+		}
+		page++
+	}
+
+	return notebooks
 }
 
 // Creates a tree of notebooks from a list of notebooks. Each notebook has a
