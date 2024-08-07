@@ -25,3 +25,4 @@ go.work.sum
 .env
 
 create_tunnel.bat
+config.json
