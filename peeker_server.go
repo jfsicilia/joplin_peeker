@@ -2,24 +2,147 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 )
 
-// Default host and port for the HTTP server.
-const PEEKER_HOST = "127.0.0.1"
-const PEEKER_PORT = "8080"
-
 // Joplins server address.
-const JOPLIN_SERVER = "http://localhost:51184"
+var JOPLIN_SERVER string
 
 // Joplins access token.
-const JOPLIN_TOKEN = "8ec6a65bc4a11dfc183779101c9315c3eb8a3062014a6eeb7b78d18f638f96acfdc9e2dfc92214aec0934105eb0f4657900f0efd8a9ae8a144f393606f0d535e"
+var JOPLIN_TOKEN string
+
+// Host and port for the peeker server.
+var PEEKER_HOST string
+var PEEKER_PORT string
+
+const DEFAULT_JOPLIN_SERVER = "http://localhost:41184"
+const DEFAULT_PEEKER_HOST = "127.0.0.1"
+const DEFAULT_PEEKER_PORT = "8080"
+
+const CONFIG_FILE = "config.json"
+
+// Reads the configuration from a JSON file.
+// The file should have the following structure:
+//
+//	{
+//	  "joplin_server": "http://<your_joplin_host>:<joplin_port>",
+//	  "joplin_token": "<your_joplin_token>",
+//	  "peeker_host": "<your_host>"
+//	  "peeker_port": "<your_port>"
+//	}
+//
+// Returns:
+// A map with the configuration values.
+func readConfigJSON() (map[string]string, error) {
+	// Read the config file
+	file, err := os.Open(CONFIG_FILE)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Read the file content
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the JSON content
+	var config map[string]string
+	err = json.Unmarshal(content, &config)
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
+// Prints the usage of the program.
+func usage() {
+	fmt.Printf("\nUsage: " + filepath.Base(os.Args[0]) + " [options]\n")
+	fmt.Printf("\nRuns the peeker server. The following options are available:\n\n")
+	flag.PrintDefaults()
+	fmt.Printf("\n1. If an option is not provided, the program will look for the\n" +
+		"corresponding environment variable (JOPLIN_SERVER, JOPLIN_TOKEN,\n" +
+		"PEEKER_HOST, PEEKER_PORT).\n\n" +
+		"2. If the environment variable is not set, the program will\n" +
+		"try to read " + CONFIG_FILE + " file in the current directory.\n" +
+		"The file should be a JSON file with the following structure:\n" +
+		"{\n" +
+		"  \"joplin_server\": \"http://<your_joplin_host>:<joplin_port>\",\n" +
+		"  \"joplin_token\": \"<your_joplin_token>\",\n" +
+		"  \"peeker_host\": \"<your_host>\"\n" +
+		"  \"peeker_port\": \"<your_port>\"\n" +
+		"}\n\n" +
+		"3. Finally if the file is not found or the JSON is invalid, the program will\n" +
+		"fall back to the default values.\n\n" +
+		"NOTE: There's no default value provided for JOPLIN_TOKEN, so it must be\n" +
+		"provided either through an option, an environment variable or the config file.\n")
+}
+
+// Initializes the program by parsing the command line arguments, environment,
+// config file and default values. It sets the JOPLIN_SERVER, JOPLIN_TOKEN,
+// PEEKER_HOST and PEEKER_PORT.
+func init() {
+	flag.StringVar(&JOPLIN_SERVER, "joplin", "", "Joplin server address and port (default: "+DEFAULT_JOPLIN_SERVER+")")
+	flag.StringVar(&JOPLIN_TOKEN, "token", "", "Joplin access token")
+	flag.StringVar(&PEEKER_HOST, "host", "", "Listen address for the peeker server (default: "+DEFAULT_PEEKER_HOST+")")
+	flag.StringVar(&PEEKER_PORT, "port", "", "Listen port for the peeker server (default: "+DEFAULT_PEEKER_PORT+")")
+	flag.Parse()
+
+	if env, exist := os.LookupEnv("JOPLIN_SERVER"); exist && JOPLIN_SERVER == "" {
+		JOPLIN_SERVER = env
+	}
+	if env, exist := os.LookupEnv("JOPLIN_TOKEN"); exist && JOPLIN_TOKEN == "" {
+		JOPLIN_TOKEN = env
+	}
+	if env, exist := os.LookupEnv("PEEKER_HOST"); exist && PEEKER_HOST == "" {
+		PEEKER_HOST = env
+	}
+	if env, exist := os.LookupEnv("PEEKER_PORT"); exist && PEEKER_PORT == "" {
+		PEEKER_PORT = env
+	}
+
+	if config, err := readConfigJSON(); err == nil {
+		if JOPLIN_SERVER == "" {
+			JOPLIN_SERVER = config["joplin_server"]
+		}
+		if JOPLIN_TOKEN == "" {
+			JOPLIN_TOKEN = config["joplin_token"]
+		}
+		if PEEKER_HOST == "" {
+			PEEKER_HOST = config["peeker_host"]
+		}
+		if PEEKER_PORT == "" {
+			PEEKER_PORT = config["peeker_port"]
+		}
+	}
+
+	if JOPLIN_SERVER == "" {
+		JOPLIN_SERVER = DEFAULT_JOPLIN_SERVER
+	}
+	if PEEKER_HOST == "" {
+		PEEKER_HOST = DEFAULT_PEEKER_HOST
+	}
+	if PEEKER_PORT == "" {
+		PEEKER_PORT = DEFAULT_PEEKER_PORT
+	}
+
+	if JOPLIN_TOKEN == "" {
+		fmt.Println("Error: JOPLIN_TOKEN is missing")
+		usage()
+		os.Exit(1)
+	}
+}
 
 // Note represents a note in the Joplin server.
 type Note struct {
@@ -214,7 +337,8 @@ func getNoteMarkdown(noteID string) string {
 	const OPEN_IN_JOPLIN_TEMPLATE = "<a href='joplin://x-callback-url/openNote?id=%s'>" +
 		"<img src='/static/img/joplin_logo.png' width='20px' height='20px' alt='Joplin Logo'/>" +
 		" Open in Joplin</a>"
-	markdown = HOME_TEMPLATE + "   |   " + fmt.Sprintf(OPEN_IN_JOPLIN_TEMPLATE, noteID) + "\n\n" + markdown
+	nav_links := HOME_TEMPLATE + "   |   " + fmt.Sprintf(OPEN_IN_JOPLIN_TEMPLATE, noteID)
+	markdown = nav_links + "\n\n" + markdown + "\n\n" + nav_links
 
 	return markdown
 }
