@@ -1,4 +1,6 @@
 {
     "joplin_server": "http://localhost:41184",
-    "joplin_token": "Copy token from Joplin Web Clipper settings."
+    "joplin_token": "Copy token from Joplin Web Clipper settings.",
+    "peeker_host": "127.0.0.1",
+    "peeker_port": "8080"
 }
