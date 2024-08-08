@@ -26,3 +26,5 @@ go.work.sum
 
 create_tunnel.bat
 config.json
+peeker_server
+peeker_server.exe
