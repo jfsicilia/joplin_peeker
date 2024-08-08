@@ -25,8 +25,11 @@ function updateResults(query) {
 
     console.debug('Searching for:', query);
     fetch(`/search/?query=${encodeURIComponent(query)}`)
-        .then(data => data.json())
-
+        .then(data => {
+            if (data.ok)
+                return data.json()
+            return data.text().then(errorMsg => { throw new Error(errorMsg) });
+        })
         .then(results => {
             resultsContainer.innerHTML = ''; // Clear previous results
 
@@ -37,6 +40,9 @@ function updateResults(query) {
                     `<a href=/id/${result.id}>${result.title}</a>`;
                 resultsContainer.appendChild(resultItem);
             });
+        })
+        .catch(error => {
+            showErrorBanner(error.message)
         });
 }
 
@@ -85,7 +91,11 @@ function updateNotebooks() {
     tree.innerHTML = '';
 
     fetch('/notebooks/')
-        .then(data => data.json())
+        .then(data => {
+            if (data.ok)
+                return data.json()
+            return data.text().then(errorMsg => { throw new Error(errorMsg) });
+        })
         .then(root => root.children.forEach(child => createNotebookNode(tree, child)))
         // After creating the tree, add click listeners to the elements.
         .then(() => {
@@ -109,11 +119,35 @@ function updateNotebooks() {
                     updateResults(search.value);
                 });
             });
+        })
+        .catch(error => {
+            showErrorBanner(error.message)
         });
+}
+
+// Function to show an error banner with the given message.
+function showErrorBanner(message) {
+    // Set the error message
+    const banner = document.getElementById('error-banner');
+    banner.textContent = message + ' (Click anywhere or press any key to dismiss).';
+
+    // Show the overlay and the banner
+    const overlay = document.getElementById('overlay');
+    overlay.style.display = 'block';
+    banner.style.display = 'block';
+}
+
+// Function to hide the error banner.
+function hideErrorBanner() {
+    const overlay = document.getElementById('overlay');
+    const banner = document.getElementById('error-banner');
+    overlay.style.display = 'none';
+    banner.style.display = 'none';
 }
 
 // Main function to be executed when the DOM is fully loaded.
 document.addEventListener('DOMContentLoaded', function () {
+
     // Get searchBox set its value to the last search query,
     // then update the results based on the last search.
     const searchBox = document.getElementById('search');
@@ -165,10 +199,33 @@ document.addEventListener('DOMContentLoaded', function () {
         document.body.style.cursor = 'default';
     });
 
-    // '/' and 'x' have special functionality outside the searchbox.
+    // Hide the error banner, if open, when the user clicks anywhere on the
+    // document.
+    document.addEventListener('click', function (event) {
+        const banner = document.getElementById('error-banner');
+        // If banner is open, hide it and prevent the default action.
+        if (banner.style.display === 'block') {
+            event.preventDefault();
+            hideErrorBanner();
+            return;
+        }
+    });
+
+    // Hide the error banner, if open, when the user presses any key.
+    //
+    // '/' and 'x' have special functionality outside the searchbox, so we
+    // check if those keys have been pressed.
     // '/' focuses on the search box and selects all text.
-    // 'x' clears the search box.0
+    // 'x' clears the search box.
     document.addEventListener('keydown', function (event) {
+        const banner = document.getElementById('error-banner');
+        // If banner is open, hide it and prevent the default action.
+        if (banner.style.display === 'block') {
+            event.preventDefault();
+            hideErrorBanner();
+            return;
+        }
+
         const searchBox = document.getElementById('search');
         if (document.activeElement === searchBox)
             return; // Do nothing if the search box already has focus
