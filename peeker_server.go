@@ -14,6 +14,8 @@ import (
 	"sort"
 )
 
+// ------------------ CONFIGURATION & COMMAND LINE ------------------
+
 // Joplins server address.
 var JOPLIN_SERVER string
 
@@ -29,6 +31,8 @@ const DEFAULT_PEEKER_HOST = "127.0.0.1"
 const DEFAULT_PEEKER_PORT = "8080"
 
 const CONFIG_FILE = "config.json"
+
+var VERBOSE bool = false
 
 // Reads the configuration from a JSON file.
 // The file should have the following structure:
@@ -97,6 +101,7 @@ func init() {
 	flag.StringVar(&JOPLIN_TOKEN, "token", "", "Joplin access token")
 	flag.StringVar(&PEEKER_HOST, "host", "", "Listen address for the peeker server (default: "+DEFAULT_PEEKER_HOST+")")
 	flag.StringVar(&PEEKER_PORT, "port", "", "Listen port for the peeker server (default: "+DEFAULT_PEEKER_PORT+")")
+	flag.BoolVar(&VERBOSE, "v", false, "Verbose mode (default: false)")
 	flag.Parse()
 
 	if env, exist := os.LookupEnv("JOPLIN_SERVER"); exist && JOPLIN_SERVER == "" {
@@ -190,10 +195,11 @@ func main() {
 	http.Handle("/static/",
 		http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-	// Start server.
-	server := fmt.Sprintf("%s:%s", PEEKER_HOST, PEEKER_PORT)
-	fmt.Printf("Server listening on %s...\n", server)
-	log.Fatal(http.ListenAndServe(server, nil))
+	// Start peeker_server.
+	peeker_server := fmt.Sprintf("%s:%s", PEEKER_HOST, PEEKER_PORT)
+	fmt.Printf("Peeker Server listening on %s\n", peeker_server)
+	fmt.Printf("Forwarding requests to Joplin Server on %s\n", JOPLIN_SERVER)
+	log.Fatal(http.ListenAndServe(peeker_server, nil))
 }
 
 // --------------------- HELPER FUNCTIONS ---------------------
@@ -222,6 +228,53 @@ func modifyMarkdown(markdown string) string {
 	return markdown
 }
 
+// Logs a message if the verbose flag is set.
+//
+// Parameters:
+//
+//	logMsg: The log message to print.
+//	args: The arguments to the log message if any.
+func logInfo(logMsg string, args ...interface{}) {
+	if VERBOSE {
+		if args == nil {
+			log.Println("INFO: " + logMsg)
+		} else {
+			log.Printf("INFO: "+logMsg, args...)
+		}
+	}
+}
+
+// Logs an error message.
+// Parameters:
+//
+//	logMsg: The log message to print.
+//	err: The error that occurred.
+//	args: The arguments to the log message if any.
+func logError(logMsg string, err error, args ...interface{}) {
+	if args == nil {
+		log.Printf("ERROR: "+logMsg, err)
+	} else {
+		allArgs := append([]interface{}{err}, args...)
+		log.Printf("ERROR: "+logMsg, allArgs...)
+	}
+}
+
+// Logs an internal error and returns an HTTP 500 status code to the client.
+//
+// Parameters:
+//
+//	logMsg: The log message to print.
+//	err: The error that occurred.
+//	w: The HTTP response writer [optional]. If nil, no response is sent to the client.
+//	clientMsg: The message to send to the client [optional]. If w is nil, this
+//		   parameter is ignored.
+func serverError(logMsg string, err error, w http.ResponseWriter, clientMsg string) {
+	logError(logMsg, err)
+	if w != nil {
+		http.Error(w, clientMsg, http.StatusInternalServerError)
+	}
+}
+
 // -------------------- JOPLIN SERVER COMMUNICATION --------------------
 
 // Creates a query to get a note from the Joplin server.
@@ -240,7 +293,7 @@ func createNoteQuery(noteID string, fields string) string {
 		query = query + "&fields=" + fields
 	}
 	query = fmt.Sprintf(query, JOPLIN_SERVER, noteID, JOPLIN_TOKEN)
-	log.Println("createNoteQuery: " + query)
+	logInfo("createNoteQuery: " + query)
 	return query
 }
 
@@ -263,7 +316,7 @@ func createNotebooksQuery(page int, fields string) string {
 		query = query + "&fields=" + fields
 	}
 	query = fmt.Sprintf(query, JOPLIN_SERVER, page, JOPLIN_TOKEN)
-	log.Println("createNotebooksQuery: " + query)
+	logInfo("createNotebooksQuery: " + query)
 	return query
 }
 
@@ -279,7 +332,7 @@ func createNotebooksQuery(page int, fields string) string {
 func createImgQuery(imageID string) string {
 	query := "%s/resources/%s/file?token=%s"
 	query = fmt.Sprintf(query, JOPLIN_SERVER, imageID, JOPLIN_TOKEN)
-	log.Println("createImgQuery: " + query)
+	logInfo("createImgQuery: " + query)
 	return query
 }
 
@@ -296,7 +349,7 @@ func createSearchQuery(search string) string {
 	search = url.QueryEscape(search)
 	query := "%s/search?query=%s&fields=id,title&token=%s"
 	query = fmt.Sprintf(query, JOPLIN_SERVER, search, JOPLIN_TOKEN)
-	log.Println("createSearchQuery: " + query)
+	logInfo("createSearchQuery: " + query)
 	return query
 }
 
@@ -310,12 +363,14 @@ func createSearchQuery(search string) string {
 //
 // A string containing the markdown content of the note. The markdown content
 // is modified to replace Joplin markdown links with peeker server links.
-func getNoteMarkdown(noteID string) string {
+// An error if one occurred during the retrieval of the note.
+func getNoteMarkdown(noteID string) (string, error) {
 	query := createNoteQuery(noteID, "title,body")
-	log.Printf("Query: %s\n", query)
+	logInfo("Query: %s\n", query)
 	resp, err := http.Get(query)
 	if err != nil {
-		log.Fatal(err)
+		serverError("[getNoteMarkdown] http.Get -> %v", err, nil, "")
+		return "", err
 	}
 	defer resp.Body.Close()
 
@@ -323,7 +378,8 @@ func getNoteMarkdown(noteID string) string {
 	var data map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&data)
 	if err != nil {
-		log.Fatalf("json.Decode -> %v", err)
+		serverError("[getNoteMarkdown] json.Decode -> %v", err, nil, "")
+		return "", err
 	}
 
 	// Extract the "body" (markdown) and modify Joplins markdown links with
@@ -340,7 +396,7 @@ func getNoteMarkdown(noteID string) string {
 	nav_links := HOME_TEMPLATE + "   |   " + fmt.Sprintf(OPEN_IN_JOPLIN_TEMPLATE, noteID)
 	markdown = nav_links + "\n\n" + markdown + "\n\n" + nav_links
 
-	return markdown
+	return markdown, nil
 }
 
 // getImageFromJoplin retrieves an image from a Joplin server using the
@@ -353,42 +409,48 @@ func getNoteMarkdown(noteID string) string {
 //
 // Returns:
 //
-//	[]byte: The image data as a byte slice.
-//	string: The content type of the image (e.g., "image/png").
-//	string: The content length of the image.
-func getImageFromJoplin(imageID string) ([]byte, string, string) {
+//		[]byte: The image data as a byte slice.
+//		string: The content type of the image (e.g., "image/png").
+//		string: The content length of the image.
+//	 error: An error if one occurred during the retrieval of the image.
+func getImageFromJoplin(imageID string) ([]byte, string, string, error) {
 	query := createImgQuery(imageID)
 
 	resp, err := http.Get(query)
 	if err != nil {
-		log.Fatalf("http.Get -> %v", err)
+		serverError("[getImageFromJoplin] http.Get -> %v", err, nil, "")
+		return nil, "", "", err
 	}
 	defer resp.Body.Close()
 
 	// Read image from body into a []byte.
 	image, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalf("io.ReadAll -> %v", err)
+		serverError("[getImageFromJoplin] io.ReadAll -> %v", err, nil, "")
+		return nil, "", "", err
 	}
 
 	return image,
 		resp.Header.Get("Content-Type"),
-		resp.Header.Get("Content-Length")
+		resp.Header.Get("Content-Length"),
+		nil
 }
 
 // Retrieves all notebooks from the Joplin server.
 //
 // Returns:
 //
-//	A slice of Notebook structs representing the list of notebooks.
-func getNotebooks() []Notebook {
+//		A slice of Notebook structs representing the list of notebooks.
+//	 An error if one occurred during the retrieval of the notebooks.
+func getNotebooks() ([]Notebook, error) {
 	page := 1
 	// Resulting slice of notebooks.
 	notebooks := []Notebook{}
 	for {
 		resp, err := http.Get(createNotebooksQuery(page, "id,title,parent_id"))
 		if err != nil {
-			log.Fatalf("http.Get -> %v", err)
+			serverError("[getNotebooks] http.Get -> %v", err, nil, "")
+			return nil, err
 		}
 		defer resp.Body.Close()
 
@@ -396,7 +458,8 @@ func getNotebooks() []Notebook {
 		var notebooksResponse NotebooksResponse
 		err = json.NewDecoder(resp.Body).Decode(&notebooksResponse)
 		if err != nil {
-			log.Fatalf("json.Decode -> %v", err)
+			serverError("[getNotebooks] json.Decode -> %v", err, nil, "")
+			return nil, err
 		}
 		notebooks = append(notebooks, notebooksResponse.Items...)
 		// If there are no more notebooks left, break the loop.
@@ -406,7 +469,7 @@ func getNotebooks() []Notebook {
 		page++
 	}
 
-	return notebooks
+	return notebooks, nil
 }
 
 // Creates a tree of notebooks from a list of notebooks. Each notebook has a
@@ -488,7 +551,7 @@ func fillNotebooksTree(parentID string,
 // Handles the root path of the server. It serves the index.html
 // file from the static directory.
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Handling root: " + r.URL.Path)
+	logInfo("Handling root: " + r.URL.Path)
 	http.ServeFile(w, r, "static/index.html")
 }
 
@@ -497,11 +560,16 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 func noteContentHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract the note ID from the URL path
 	noteID := r.URL.Path[len("/id/"):]
-	log.Println("Handling noteID: " + noteID)
+	logInfo("Handling noteID: " + noteID)
 
 	// Write the markdown response
+	markdown, err := getNoteMarkdown(noteID)
+	if err != nil {
+		serverError("[noteContentHandler] getNoteMarkdown -> %v", err, w, "Failed to get note")
+		return
+	}
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
-	fmt.Fprintf(w, "%s", getNoteMarkdown(noteID))
+	fmt.Fprintf(w, "%s", markdown)
 }
 
 // Handles the /search/ path of the server. It serves the search results from
@@ -509,12 +577,13 @@ func noteContentHandler(w http.ResponseWriter, r *http.Request) {
 // returned by the Joplin server (items and has_more fields).
 func searchHandler(w http.ResponseWriter, r *http.Request) {
 	query := createSearchQuery(r.URL.Query().Get("query"))
-	log.Println("Handling search: " + query)
+	logInfo("Handling search: " + query)
 
 	// Make an HTTP GET request to JOPLIN_SERVER with the search query
 	resp, err := http.Get(query)
 	if err != nil {
-		log.Fatalf("http.Get -> %v", err)
+		serverError("[searchHandler] http.Get -> %v", err, w, "Failed to search notes")
+		return
 	}
 	defer resp.Body.Close()
 
@@ -522,11 +591,13 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalf("io.ReadAll -> %v", err)
+		serverError("[searchHandler] io.ReadAll -> %v", err, w, "Failed to search notes")
+		return
 	}
 	_, err = w.Write(data)
 	if err != nil {
-		log.Fatalf("w.Write -> %v", err)
+		serverError("[searchHandler] w.Write -> %v", err, w, "Failed to search notes")
+		return
 	}
 }
 
@@ -535,20 +606,29 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 // {id, title, parent_id, children} where children is a list of
 // {id, title, parent_id, children}. The root notebook has an ID of "_root_".
 func notebooksHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Handling notebooks")
+	logInfo("Handling notebooks")
 
 	// Get the tree from Joplin Server
-	tree := createNotebooksTree(getNotebooks())
+	notebooks, err := getNotebooks()
+	if err != nil {
+		serverError("[notebooksHandler] getNotebooks -> %v", err, w, "Failed to get notebooks tree")
+		return
+	}
+	tree := createNotebooksTree(notebooks)
 
 	// Return the same JSON response from Joplin Server to the client.
 	w.Header().Set("Content-Type", "application/json")
 	notebooksJSON, err := json.Marshal(tree)
 	if err != nil {
-		log.Fatalf("json.Marshal -> %v", err)
+		serverError("[notebooksHandler] json.Marshal -> %v", err, w, "Failed to get notebooks tree")
+		return
 	}
+
+	// Write the notebook tree JSON response.
 	_, err = w.Write(notebooksJSON)
 	if err != nil {
-		log.Fatalf("w.Write -> %v", err)
+		serverError("[notebooksHandler] w.Write -> %v", err, w, "Failed to get notebooks tree")
+		return
 	}
 }
 
@@ -558,10 +638,14 @@ func notebooksHandler(w http.ResponseWriter, r *http.Request) {
 func imageHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract the note ID from the URL path
 	imageID := r.URL.Path[len("/image/"):]
-	log.Println("Handling imgID: " + imageID)
+	logInfo("Handling imgID: " + imageID)
 
 	// Write the markdown response
-	img, imgType, imgLength := getImageFromJoplin(imageID)
+	img, imgType, imgLength, err := getImageFromJoplin(imageID)
+	if err != nil {
+		serverError("[notebooksHandler] imageHandler -> %v", err, w, "Failed to get image")
+		return
+	}
 	w.Header().Set("Content-Type", imgType)
 	w.Header().Set("Content-Length", imgLength)
 	w.Write(img)
@@ -570,6 +654,6 @@ func imageHandler(w http.ResponseWriter, r *http.Request) {
 // Handles the /favicon.ico path of the server. It serves the favicon.ico
 // file from the static directory.
 func iconHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Handling favicon.ico")
+	logInfo("Handling favicon.ico")
 	http.ServeFile(w, r, "static/img/favicon.ico")
 }
