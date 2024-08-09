@@ -1,14 +1,14 @@
-# <img src="/assets/img/joplin_peeker_logo.png" width="100px"></img> Joplin Peeker Server
+# <img src="/assets/img/joplin_peeker_logo.png" width="100px" alt="Joplin Peeker logo"> Joplin Peeker Server
 
-A simple local web server to peek on your Joplin notes and notebooks.
+A simple local web server to browse your Joplin notes and notebooks.
 
-<img src="/assets/img/joplin_peeker_usage.gif" width="600px"></img>
+<img src="/assets/img/joplin_peeker_usage.gif" width="600px" alt="Joplin Peeker Usage">
 
-Joplin Peeker is a simple pet project that allows to browse your Joplin's notes and notebooks in your favourite web browser. This allows to use your favourite extensions in your browser when searching and viewing your notes. For example, you can use [Vimium](https://chromewebstore.google.com/detail/vimium/dbepggeogbaibhgnhhndojpepiihcmeb) to navigate your notes using only the keyboard and [Markdown Viewer](https://chromewebstore.google.com/detail/markdown-viewer/ckkdlimhmcjmikdlpkmbgfkaikojcbjk) to view an enhanced version of your note's markdown.
+Joplin Peeker is a straightforward project that allows you to browse your Joplin notes and notebooks in your favorite web browser. This enables you to use your preferred browser extensions when searching and viewing your notes. For example, you can use [Vimium](https://chromewebstore.google.com/detail/vimium/dbepggeogbaibhgnhhndojpepiihcmeb) to navigate your notes using only the keyboard and [Markdown Viewer](https://chromewebstore.google.com/detail/markdown-viewer/ckkdlimhmcjmikdlpkmbgfkaikojcbjk) to view an enhanced version of your notes' markdown.
 
 ## Running
 
-Joplin Peeker is written in Go in the backend and JS/CSS/HTML in the frontend. No external modules have been used, so the build/run of the server is straight forward. After cloning the repository, to run the server with the default configuration execute this command in the root folder of the project:
+Joplin Peeker is built with Go for the backend and JS/CSS/HTML for the frontend. No external modules are required, making the build and run process straightforward. After cloning the repository, you can run the server with the default configuration by executing the following command in the project's root folder:
 
 ```bash
 $ go run peeker_server.go
@@ -16,20 +16,20 @@ $ go run peeker_server.go
 
 You sould see something like:
 
-<img src="/assets/img/running_peeker_server.png" width="400px"></img>
+<img src="/assets/img/running_peeker_server.png" width="400px" alt="Running Peeker Server">
 
-**NOTE:** Joplin desktop/cli app must be running and the Webclipper server enabled.
+**NOTE:** The Joplin desktop/CLI app must be running with the Web Clipper Server enabled. The port and token to access the server can be found in Joplin's settings.
 
-<img src="/assets/img/joplin_settings.png" width="400px"></img>
+<img src="/assets/img/joplin_settings.png" width="400px" alt="Joplin Settings">
 
 The following parameters can be set to configure the server:
 
 > - *JOPLIN_SERVER*: The address and port of the Joplin Webclipper Server (default: `http://localhost:41184`).
-> - *JOPLIN_TOKEN*: The Joplin Authorization token ([`REQUIRED`] No default provided).
+> - *JOPLIN_TOKEN*: The Joplin Authorization token (**required**, no default provided).
 > - *PEEKER_HOST*: The address of the Joplin Peeker Server (default: `127.0.0.1`).
 > - *PEEKER_PORT*: The port of the Joplin Peeker Server (default: `8080`).
 
-The are three ways to set the parameters. If none is used, harcoded default values are used. This is the order of prevalence for setting the parameters:
+There are three ways to set these parameters. If none are provided, hardcoded default values will be used. The precedence for setting parameters is as follows:
 
 ### 1. Using the command line to set the parameters.
 
@@ -55,7 +55,7 @@ export PEEKER_HOST=192.168.1.1
 
 ### 3. Use a `config.json` file to set the parameters. 
 
-The file must be in the same folder as the `peeker_server.go` or the `peeker_server` executable.
+You can also use a config.json file to set the parameters. This file must be located in the same folder as the `peeker_server.go` file or the `peeker_server` executable.
 
 ```json
 {
@@ -66,14 +66,23 @@ The file must be in the same folder as the `peeker_server.go` or the `peeker_ser
 }
 ```
 
-Finally, when configured for own settings and run, the Peeker Server could be access in any browser navigation to `http://<PEEKER_HOST>:<PEEKER_PORT>`. The initial web page will look something like:
+## Accessing the Server
 
-<img src="assets/img/peeker_server_main.png" width="500px"></img>
+Once configured and running, you can access the Peeker Server in any web browser by navigating to `http://<PEEKER_HOST>:<PEEKER_PORT>`. The initial web page will look something like this:
 
-On the left the notebooks tree. Clicking on any notebook will fetch all the notes of that notebook. On the right the search box. You can use the same search syntax that Joplins use ([Joplin Searching](https://joplinapp.org/help/apps/search/)).
+<img src="assets/img/peeker_server_main.png" width="500px" alt="Peeker Server Main Page">
+
+On the left, you'll see the notebooks tree. Clicking on any notebook will fetch all the notes within that notebook. On the right, there is a search box where you can use the same search syntax as Joplin ([Joplin Searching](https://joplinapp.org/help/apps/search/)).
 
 ## Building & Installing.
 
-To create.
+To create an executable of the server, run this command:
+
+```bash
+$ go build peeker_server.go
+# This will generate a peeker_server or peeker_server.exe executable.
+```
+
+To run the server as a standalone app, you only need the executable and the `static` directory in the same folder where you run the executable.
 
 
