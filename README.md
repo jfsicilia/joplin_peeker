@@ -66,11 +66,14 @@ The file must be in the same folder as the `peeker_server.go` or the `peeker_ser
 }
 ```
 
-Finally, when configured for own settings and run, the Peeker Server could be access in any browser navigation to `http://<PEEKER_HOST>:<PEEKER_PORT>`. The initial web page will be:
+Finally, when configured for own settings and run, the Peeker Server could be access in any browser navigation to `http://<PEEKER_HOST>:<PEEKER_PORT>`. The initial web page will look something like:
 
+<img src="assets/img/peeker_server_main.png" width="500px"></img>
 
+On the left the notebooks tree. Clicking on any notebook will fetch all the notes of that notebook. On the right the search box. You can use the same search syntax that Joplins use ([Joplin Searching](https://joplinapp.org/help/apps/search/)).
 
 ## Building & Installing.
 
+To create.
 
 
